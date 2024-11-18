@@ -1,0 +1,88 @@
+//
+//  NetworkManager.swift
+//  Recipe App
+//
+//  Created by Parth Barot on 11/15/24.
+//
+
+import UIKit
+
+protocol NetworkManagerProtocol {
+    func getRecipes(completed: @escaping (Result<[Recipe], APError>) -> Void)
+    func downloadImage(from urlString: String, completed: @escaping (UIImage?) -> Void)
+}
+
+class NetworkManager: NSObject, NetworkManagerProtocol {
+    
+    static let shared           = NetworkManager()
+    private let cache           = NSCache<NSString, UIImage>()
+    
+    static let baseURL          = "https://d3jbb8n5wk0qxi.cloudfront.net/"
+    private let recipeURL    = baseURL + "recipes.json"
+
+    private override init() {}
+    
+    
+    func getRecipes(completed: @escaping (Result<[Recipe], APError>) -> Void) {
+        guard let url = URL(string: recipeURL) else {
+            completed(.failure(.invalidURL))
+            return
+        }
+               
+        let task = URLSession.shared.dataTask(with: URLRequest(url: url)) { data, response, error in
+            
+            if let _ =  error {
+                completed(.failure(.unableToComplete))
+                return
+            }
+                        
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+                completed(.failure(.invalidResponse))
+                return
+            }
+            
+            guard let data = data else {
+                completed(.failure(.invalidData))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let decodedResponse = try decoder.decode(RecipeResponse.self, from: data)
+                completed(.success(decodedResponse.recipes))
+            } catch {
+                completed(.failure(.invalidData))
+            }
+        }
+        
+        task.resume()
+    }
+    
+    
+    func downloadImage(from urlString: String, completed: @escaping (UIImage?) -> Void) {
+        
+        let cacheKey = NSString(string: urlString)
+        
+        if let image = cache.object(forKey: cacheKey) {
+            completed(image)
+            return
+        }
+        
+        guard let url = URL(string: urlString) else {
+            completed(nil)
+            return
+        }
+        
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            guard let data = data, let image = UIImage(data: data) else {
+                completed(nil)
+                return
+            }
+            
+            self.cache.setObject(image, forKey: cacheKey)
+            completed(image)
+        }
+        
+        task.resume()
+    }
+}
