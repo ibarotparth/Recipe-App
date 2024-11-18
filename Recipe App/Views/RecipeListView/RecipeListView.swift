@@ -17,7 +17,7 @@ struct RecipeListView: View {
                 List(viewModel.recipes, id: \.id) { recipe in
                     RecipeCell(recipe: recipe)
                 }
-                .navigationTitle("🍟 Recipes")
+                .navigationTitle("Recipes")
             }
             .onAppear {
                 viewModel.getRecipes()
